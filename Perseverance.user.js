@@ -73,11 +73,17 @@
     }
     cleanup(inactiveDays) {
       // delete if ((current time - range) > update time)
+      console.info(this._array);
       let itemsForDeletion = this._array.filter(item => {
         return ((+new Date() - inactiveDays * 24 * 60 * 60 * 1000) > +new Date(item.updated));
       });
-      this._array = this._array.filter(x => !itemsForDeletion.includes(x));
-      this._commit();
+      if (!itemsForDeletion.length) {
+        return true;
+      }
+      let temp = this._array.filter(x => !itemsForDeletion.includes(x));
+      if (temp.length) {
+        this._commit();
+      }
     }
   }
 
@@ -112,17 +118,17 @@
     let isPetOutOfCage = !!document.querySelector('#pet .ico_cage_1');
 
     let indexProfilePower = document.querySelector('#profile .profile_statistic tr:last-child td:last-child');
-    if (indexProfilePower) {
+    if (indexProfilePower && location.href.includes('index')) {
       let power = toInteger(indexProfilePower.innerText);
       GM_setValue('main.power', power);
       //console.log('index profile power', power);
     }
-    let fightPlaceDiv = document.querySelector('#fightplace_remaining');
-    if (fightPlaceDiv) {
-      let timerFightPlace = getDateFromDiv(fightPlaceDiv);
-      GM_setValue('main.timer.fightplace', timerFightPlace);
-      //console.log('timer fightPlace', timerFightPlace, getCountDownFromDate(timerFightPlace)/1000);
-    }
+    //let fightPlaceDiv = document.querySelector('#fightplace_remaining');
+    //f (fightPlaceDiv) {
+    //   let timerFightPlace = getDateFromDiv(fightPlaceDiv);
+    //    GM_setValue('main.timer.fightplace', timerFightPlace);
+    //console.log('timer fightPlace', timerFightPlace, getCountDownFromDate(timerFightPlace)/1000);
+    //}
 
     async function checkTimers() {
       let list = updateTimers();
@@ -146,20 +152,14 @@
       }
       await delay(randomInteger(500, 2000) + 3000);
       switch (name) {
-        case "dozorMonster":
-          if (isPetOutOfCage) {
-            location.href = '/dozor.php';
-          }
-          break;
-        case "arena":
-        case "dozorAttack":
-        case "dozorZorro":
-          location.href = '/dozor.php';
-          break;
         case "workshop":
-          var url = '/castle.php?a=workshop_';
-          if (document.querySelector('.guilds_icon.guild_4')) {
-            url += 'farm&id=4';
+          var url = '/castle.php?a=';
+          if (isInGuild('farm')) {
+            url += 'workshop_farm&id=4';
+          } else if (isInGuild('mine')) {
+            url += 'workshop_mine&id=3';
+          } else if (isInGuild('trade')) {
+            url += 'foreign&id=1'
           }
           location.href = url;
           break;
@@ -168,6 +168,22 @@
           break;
         case 'channeling':
           location.href = '/channeling.php';
+          break;
+        case "dozorMonster":
+          if (isPetOutOfCage) {
+            location.href = '/dozor.php';
+          }
+          break;
+        case "dozorAttack":
+          if (!attackEnabled) {
+            return;
+          }
+        case "arena":
+          if (!arenaEnabled) {
+            return;
+          }
+        case "dozorZorro":
+          location.href = '/dozor.php';
           break;
       }
     }
@@ -243,6 +259,9 @@
       if (href.includes('/castle.php?a=workshop')) {
         return 'workshop';
       }
+      if (href.includes('/castle.php?a=foreign')) {
+        return 'foreign';
+      }
       if (href.endsWith('/fort.php?a=place&type=1')) {
         return 'tunnels';
       }
@@ -276,6 +295,8 @@
           return destinyHarbourPier();
         case 'workshop':
           return destinyWorkshop();
+        case 'foreign':
+          return destinyForeign();
         case 'tunnels':
           return destinyTunnels();
         case 'lab':
@@ -372,8 +393,7 @@
     }
     async function destinyHarbourPier() {
       if (document.querySelector('#events_scroll #event_73')) {
-        throw new Error('no boat!');
-        //return renewBoat();  TODO: Buy boat!
+        return renewBoat();
       }
 
       async function renewBoat() {
@@ -425,6 +445,9 @@
       return false;
     }
     async function destinyWorkshop() {
+      if (isInGuild('trade')) {
+        return destinyForeign();
+      }
       let timer = document.querySelector('.workshop .js_timer');
       let button = document.querySelector('.workshop .workshop_button input[type=submit]');
       if (!timer && !button) {
@@ -434,31 +457,75 @@
         if (!isHidden(button)) {
           if (crystals < 20) {
             console.log('Sry, no crystals.');
+            GM_setValue('main.timer.workshop', getNextDay());
             return false;
           }
-          let slavesSpan = document.querySelector('#slaves_count'); // for farmers!
-          if (slavesSpan) {
+          if (isInGuild('farm')) {
+            let slavesSpan = document.querySelector('#slaves_count'); // for farmers!
             let slavesCount = toInteger(slavesSpan.innerText);
             if (!slavesCount) {
               console.log('No slaves.');
+              GM_setValue('main.timer.workshop', getNextDay());
               return false;
             }
           }
           console.log('Click the button.');
           button.click();
-          await delay(2500);
-
-          // WORKSHOP TIMER
-          let timerWorkshopSpan = document.querySelector('#ws_work_timer span');
-          if (timerWorkshopSpan) {
-            let timerWorkshop = getDateFromSpan(timerWorkshopSpan);
-            GM_setValue('main.timer.workshop', timerWorkshop);
-            //console.log('timer workshop', timerWorkshop, getCountDownFromDate(timerWorkshop)/1000);
-          }
+          await delay(5000);
         }
-        return false;
+        //return false;
+      }
+      if (timer || document.querySelector('#ws_work_timer')) {
+        // WORKSHOP TIMER
+        let timerWorkshopSpan = document.querySelector('#ws_work_timer span');
+        if (timerWorkshopSpan) {
+          let timerWorkshop = getDateFromSpan(timerWorkshopSpan);
+          GM_setValue('main.timer.workshop', timerWorkshop);
+          //console.log('timer workshop', timerWorkshop, getCountDownFromDate(timerWorkshop)/1000);
+          return false;
+        }
       }
       console.log('No button to click. Waiting reload.');
+      return true;
+    }
+    async function destinyForeign() {
+      let freeSpace = document.querySelector('.iconItem.ico_free');
+      let fillAllButton = document.querySelector('.cmd_all.cmd_small_sl.cmd_asmall_sl');
+      let timerDiv = document.querySelector('#guild_ships_timer');
+
+      // Step 1. Fill up the hold.
+      if (freeSpace && fillAllButton && !timerDiv) {
+        let preservesCount = document.querySelector('.grbody p b.font_brown').innerText;
+        let fillButtons = document.querySelectorAll('a[href^="?a=foreign&id=1&put=1"]');
+        let fillButtonsLength = fillButtons.length;
+
+        console.log('Step 1');
+        if (preservesCount >= fillButtonsLength) {
+          fillAllButton.click();
+          return true;
+        }
+        fillButtons[0].click();
+        return true;
+      }
+      // Step 2. Send the ship.
+      if (!freeSpace && fillAllButton && !timerDiv) {
+        console.log('Step 2');
+        let shipForm = document.querySelector('#ship_form_4');
+        let shipFormButton = shipForm.querySelector('input[type="submit"]');
+        if (shipFormButton && !isHidden(shipFormButton) && !isDisabled(shipFormButton)) {
+          shipFormButton.click();
+          return true;
+        }
+      }
+      // Step 3. Set the timer.
+      if (!fillAllButton && timerDiv) {
+        console.log('Step 3');
+        let timerForeign = getDateFromDiv(timerDiv);
+        //console.log('timer foreign', timerForeign, getCountDownFromDate(timerForeign)/1000);
+        GM_setValue('main.timer.workshop', timerForeign);
+        return false;
+      }
+      GM_setValue('main.timer.workshop', getNextDay());
       return true;
     }
     async function destinyTunnels() {
@@ -493,7 +560,7 @@
         //console.log('timer tunnels', timerTunnels, getCountDownFromDate(timerTunnels)/1000);
         return false;
       }
-      if (timer && !description) {
+      if (current && timer && !description) {
         console.log('Run in progress.');
         GM_setValue('main.timer.tunnels', getNextDay());
         return false;
@@ -673,11 +740,16 @@
 
       let preferredEnemies = enemies.filter(item => !VALUES.main.blackList.arena.existsBy('name', item.name))
       if (!preferredEnemies[0]) {
-        console.log('All enemies are in blacklist. Skip them by a leaf.');
-        let leafButton = document.querySelector('.cmd_small_sl.cmd_asmall_sl.fl_r.can_disable');
-        if (leafButton && !isHidden(leafButton) && !isDisabled(leafButton)) {
-          leafButton.click();
-          return true;
+        let seriesCountSpan = document.querySelector('#t_help_102 span');
+        let seriesCount = seriesCountSpan ? +seriesCountSpan.innerText.match(/Серия побед: (\d+)\./i)[1] : 0;
+        let preferredSeriesCount = GM_setValue('main.arena.preferredSeriesCount', 25);
+        if (seriesCount > preferredSeriesCount) {
+          console.log('All enemies are in blacklist. Skip them by a leaf.');
+          let leafButton = document.querySelector('.cmd_small_sl.cmd_asmall_sl.fl_r.can_disable');
+          if (leafButton && !isHidden(leafButton) && !isDisabled(leafButton)) {
+            leafButton.click();
+            return true;
+          }
         }
         preferredEnemies = enemies;
       }
@@ -724,6 +796,7 @@
         console.log('Just clicking the button.');
         await delay(randomInteger(0, 500));
         button.click();
+        await delay(2000);
       }
       // CHANNELING TIMER
       let timerChannelingSpan = document.querySelector('.w100 span.js_timer');
@@ -882,6 +955,31 @@
     tomorrow.setDate(today.getDate()+1);
     tomorrow.setUTCHours(21,0,0,0); // MSK 00:00 is UTC+3
     return tomorrow;
+  }
+  function getGuild() {
+    let list = document.querySelector('.guilds div a').classList;
+    if (!list) {
+      throw new Error('No guild list.');
+    }
+    if (list.contains('guild_4')) {
+      return 'farm';
+    }
+    if (list.contains('guild_3')) {
+      return 'mine';
+    }
+    if (list.contains('guild_2')) {
+      return 'smith';
+    }
+    if (list.contains('guild_1')) {
+      return 'trade';
+    }
+    return false;
+  }
+  function isInGuild(guild) {
+    if (Array.isArray(guild)) {
+      return guild.includes(getGuild());
+    }
+    return getGuild() === guild;
   }
 
   if (document.title.includes('Ведутся работы.')) {
