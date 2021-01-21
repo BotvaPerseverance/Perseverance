@@ -17,11 +17,12 @@
 // .balert_baloon_content.big
 (async () => {
 
-  let BM = 50000000;
-  let arenaEnabled = !!1;
-  let attackEnabled = !!1;
-  let preferredPet = 200;
+  let BM = GM_getValue('main.power', 100) / 1.5;
+  let arenaEnabled = GM_getValue('main.arena.enabled', 1);
+  let attackEnabled = GM_getValue('main.attack.enabled', 1);
+  let preferredPet = GM_getValue('main.preferredPet', 0);
   /**
+   0 - disabled
    133 - Шнырк
    134 - Царапка
    135 - Бобруйко
@@ -70,18 +71,20 @@
       this._array = this._array.filter(item => item[key] !== value);
       this._commit();
     }
+    cleanup(inactiveDays) {
+      // delete if ((current time - range) > update time)
+      let itemsForDeletion = this._array.filter(item => {
+        return ((+new Date() - inactiveDays * 24 * 60 * 60 * 1000) > +new Date(item.updated));
+      });
+      this._array = this._array.filter(x => !itemsForDeletion.includes(x));
+      this._commit();
+    }
   }
 
   const VALUES = {
     main: {
       power: GM_getValue('main.power', 0),
-      timer: {
-        dozorAttack: GM_getValue('main.timer.dozorAttack', 0),
-        arena: GM_getValue('main.timer.arena', 0),
-        dozorMonster: GM_getValue('main.timer.dozorMonster', 0),
-        dozorZorro: GM_getValue('main.timer.dozorZorro', 0),
-        workshop: GM_getValue('main.timer.workshop', 0),
-      },
+      timer: updateTimers(),
       blackList: { // {name: <String>, created: <Date>, updated: <Date>}
         arena: new List('main.blackList.arena')
       }
@@ -89,62 +92,92 @@
     avatar: {}
   };
 
+  function updateTimers() {
+    return {
+      dozorAttack: GM_getValue('main.timer.dozorAttack', -1),
+      arena: GM_getValue('main.timer.arena', -1),
+      dozorMonster: GM_getValue('main.timer.dozorMonster', -1),
+      dozorZorro: GM_getValue('main.timer.dozorZorro', -1),
+      workshop: GM_getValue('main.timer.workshop', -1),
+      tunnels: GM_getValue('main.timer.tunnels', -1),
+      channeling: GM_getValue('main.timer.channeling', 0)
+    };
+  }
+
   async function destinyInit() {
     console.log('Destiny init.');
     let crystalsSpan = document.querySelector('#crystal_upd_data');
     let crystals = crystalsSpan ? toInteger(crystalsSpan.innerText) : 0;
 
     let isPetOutOfCage = !!document.querySelector('#pet .ico_cage_1');
-    /*
-    let timerDozorAttackSpan = document.querySelector('.timer[href="dozor.php"] span');
-    if (timerDozorAttackSpan) {
-        let timerDozorAttack = getDateFromSpan(timerDozorAttackSpan);
-        GM_setValue('main.timer.dozorAttack', timerDozorAttack);
-        console.log('timer dozor:', VALUES.main.timer.dozor, timerDozorAttack, getCountDownFromDate(timerDozorAttack)/1000);
-    }
-    let timerDozorMonsterSpan = document.querySelector('.watch_no_monster + div span');
-    if (timerDozorMonsterSpan) {
-        let timerDozorMonster = getDateFromSpan(timerDozorMonsterSpan);
-        GM_setValue('main.timer.dozorMonster', timerDozorMonster);
-        console.log('timer dozor monster:', timerDozorMonster, getCountDownFromDate(timerDozorMonster)/1000);
-    }
+
     let indexProfilePower = document.querySelector('#profile .profile_statistic tr:last-child td:last-child');
     if (indexProfilePower) {
-        let power = toInteger(indexProfilePower.innerText);
-        GM_setValue('main.power', power);
-        console.log('index profile power', power);
+      let power = toInteger(indexProfilePower.innerText);
+      GM_setValue('main.power', power);
+      //console.log('index profile power', power);
     }
-    let timerArenaScript = document.querySelector('.arena_wait_till + script');
-    if (timerArenaScript) {
-        let timerArena = getDateFromScript(timerArenaScript);
-        GM_setValue('main.timer.arena', timerArena);
-        console.log('timer arena', timerArena, getCountDownFromDate(timerArena)/1000);
+    let fightPlaceDiv = document.querySelector('#fightplace_remaining');
+    if (fightPlaceDiv) {
+      let timerFightPlace = getDateFromDiv(fightPlaceDiv);
+      GM_setValue('main.timer.fightplace', timerFightPlace);
+      //console.log('timer fightPlace', timerFightPlace, getCountDownFromDate(timerFightPlace)/1000);
     }
-    let timerWorkshopSpan = document.querySelector('#ws_work_timer span');
-    if (timerWorkshopSpan) {
-       let timerWorkshop = getDateFromSpan(timerWorkshopSpan);
-        GM_setValue('main.timer.workshop', timerWorkshop);
-        console.log('timer workshop', timerWorkshop, getCountDownFromDate(timerWorkshop)/1000);
-    }
-    */
 
-    function checkTimers() {
-      let list = VALUES.main.timer;
-      //console.log(Object.keys(list).sort((prev, curr) => new Date(list[prev]) >= new Date(list[curr])));
+    async function checkTimers() {
+      let list = updateTimers();
+
       let sortedEntries = Object.entries(list)
-        .filter(a => a[1])
-        .sort((prev, curr) => new Date(prev[1]) - new Date(curr[1]));
-    }
+        .filter(a => a[1] !== -1) // exclude disabled timers
+        .sort((prev, curr) => new Date(prev[1]) > new Date(curr[1]));
 
-    //checkTimers();
-    //return;
+      if (!sortedEntries.length) {
+        console.log('No timers.');
+        return;
+      }
+      let closestCounter = sortedEntries[0];
+      let name = closestCounter[0];
+      let timeout = getCountDownFromDate(new Date(closestCounter[1]))/1000;
+      if (timeout > 0) {
+        console.log(`Do job '${name}' in ${timeout} sec`);
+        await delay(timeout * 1000);
+      } else {
+        console.log(`Do job '${name}' in no time!`);
+      }
+      await delay(randomInteger(500, 2000) + 3000);
+      switch (name) {
+        case "dozorMonster":
+          if (isPetOutOfCage) {
+            location.href = '/dozor.php';
+          }
+          break;
+        case "arena":
+        case "dozorAttack":
+        case "dozorZorro":
+          location.href = '/dozor.php';
+          break;
+        case "workshop":
+          var url = '/castle.php?a=workshop_';
+          if (document.querySelector('.guilds_icon.guild_4')) {
+            url += 'farm&id=4';
+          }
+          location.href = url;
+          break;
+        case 'tunnels':
+          location.href = '/fort.php?a=place&type=1';
+          break;
+        case 'channeling':
+          location.href = '/channeling.php';
+          break;
+      }
+    }
 
     try {
-      console.log(VALUES);
       let destiny = chooseYourDestiny(location.href);
       let stayOnPage = false;
 
-      if (destiny !== 'buy_pet' && !isPetOutOfCage) {
+      if (destiny !== 'buy_pet' && !isPetOutOfCage && preferredPet) {
+        await delay(randomInteger(500, 2000));
         uncagePet();
       }
 
@@ -163,6 +196,9 @@
       }
 
       await checkEvents(destiny);
+      await checkTimers();
+
+      await delay(randomInteger(500, 2000));
       let min = randomInteger(1, randomInteger(10, 15));
       console.log(`No events? SRSLY? Waiting ${min} min for reload.`);
       await delay(min * 60 * 1e3);
@@ -219,6 +255,9 @@
       if (href.endsWith('/dozor.php?a=monster')) {
         return 'dozor_monster';
       }
+      if (href.includes('/channeling.php')) {
+        return 'channeling';
+      }
     }
 
     async function destinyRun(destiny) {
@@ -245,6 +284,8 @@
           return destinyDozor();
         case 'dozor_monster':
           return destinyDozorMonster();
+        case 'channeling':
+          return destinyChanneling();
         case 'none':
           return true;
         default:
@@ -291,7 +332,7 @@
         return false; // Just go ahead.
       }
       await delay(randomInteger(500, 2000));
-      inputs.forEach(async input => {  // TODO: click in series
+      inputs.forEach(async input => { // TODO: click in series
         input.click();
       });
       await delay(randomInteger(500, 2000));
@@ -319,7 +360,7 @@
         await delay(randomInteger(500, 2000));
         return false;
       }
-      let enemy = document.querySelector('.fl_r .arena_log a.profile span');
+      let enemy = document.querySelector('.fl_r .arena_log span');
       let enemyName = enemy.innerHTML;
 
       let lose = enemy.classList.contains('green');
@@ -405,7 +446,15 @@
           }
           console.log('Click the button.');
           button.click();
-          await delay(1000);
+          await delay(2500);
+
+          // WORKSHOP TIMER
+          let timerWorkshopSpan = document.querySelector('#ws_work_timer span');
+          if (timerWorkshopSpan) {
+            let timerWorkshop = getDateFromSpan(timerWorkshopSpan);
+            GM_setValue('main.timer.workshop', timerWorkshop);
+            //console.log('timer workshop', timerWorkshop, getCountDownFromDate(timerWorkshop)/1000);
+          }
         }
         return false;
       }
@@ -430,17 +479,23 @@
       console.log(`We have ${current} runs out of ${max}`);
       if (current === max) {
         console.log('Sry, no more runs.');
+        GM_setValue('main.timer.tunnels', getNextDay());
         return false;
       }
 
+      // TUNNELS TIMER
       let timer = document.querySelector('#fort_tunnels_next_monster');
       let description = document.querySelector('.ml140 .bar_brown.corner3.center');
       if (timer && description && description.innerText.includes('До следующего похода')) {
         console.log('Sry, cooldown.');
-        return false; // TODO: get timer_end from timer
+        let timerTunnels = getDateFromDiv(timer);
+        GM_setValue('main.timer.tunnels', timerTunnels);
+        //console.log('timer tunnels', timerTunnels, getCountDownFromDate(timerTunnels)/1000);
+        return false;
       }
       if (timer && !description) {
         console.log('Run in progress.');
+        GM_setValue('main.timer.tunnels', getNextDay());
         return false;
       }
 
@@ -464,6 +519,11 @@
       let [_1, f1current, f1max] = f1.innerText.match(/([0-9]+)\/([0-9]+)/);
       let [_2, f2current, f2max] = f2.innerText.match(/([0-9]+)\/([0-9]+)/);
 
+      f1current = +f1current;
+      f2current = +f2current;
+      f1max = +f1max;
+      f2max = +f2max;
+
       let button1 = furnace1.querySelector('input[value="ОТЖИГ"]');
       let button2 = furnace2.querySelector('input[value="ОХЛАЖДЕНИЕ"]');
 
@@ -485,13 +545,15 @@
         return false;
       }
 
-      if (f2current < f2max && f1current < f1max && !isHidden(button1)) {
-        button1.click();
+      if ((f2current < f2max) && (f1current < f1max) && !isHidden(button1)) {
         console.log('Click lab 1.');
+        await delay(1000, 5000);
+        button1.click();
       }
-      if (f1current && f2current < f2max && !isHidden(button2)) {
-        button2.click();
+      if (!!f1current && (f2current < f2max) && !isHidden(button2)) {
         console.log('Click lab 2.');
+        await delay(1000, 5000);
+        button2.click();
       }
       let sec = randomInteger(1, 5);
       console.log(`Waiting ${sec} seconds.`);
@@ -500,6 +562,13 @@
     }
     async function destinyDozor() {
       if (attackEnabled) {
+        let timerDozorAttackSpan = document.querySelector('.timer[href="dozor.php"] span');
+        if (timerDozorAttackSpan) {
+          let timerDozorAttack = getDateFromSpan(timerDozorAttackSpan);
+          GM_setValue('main.timer.dozorAttack', timerDozorAttack);
+          //console.log('timer dozor:', VALUES.main.timer.dozor, timerDozorAttack, getCountDownFromDate(timerDozorAttack)/1000);
+        }
+
         let attackForm = document.querySelector('#attack_form');
         if (attackForm) {
           return destinyDozorAttack();
@@ -512,6 +581,14 @@
       }
 
       if (arenaEnabled) {
+        // ARENA TIMER
+        let timerArenaScript = document.querySelector('.arena_wait_till + script');
+        if (timerArenaScript) {
+          let timerArena = getDateFromScript(timerArenaScript);
+          GM_setValue('main.timer.arena', timerArena);
+          //console.log('timer arena', timerArena, getCountDownFromDate(timerArena)/1000);
+        }
+
         let arenaDiv = document.querySelector('.watch_main');
         let search = await destinyDozorArena1(arenaDiv);
         if (search) {
@@ -523,6 +600,14 @@
         if (fight) {
           return true;
         }
+      }
+
+      // DOZOR MONSTER TIMER
+      let timerDozorMonsterSpan = document.querySelector('.watch_no_monster + div span');
+      if (timerDozorMonsterSpan) {
+        let timerDozorMonster = getDateFromSpan(timerDozorMonsterSpan);
+        GM_setValue('main.timer.dozorMonster', timerDozorMonster);
+        //console.log('timer dozor monster:', timerDozorMonster, getCountDownFromDate(timerDozorMonster)/1000);
       }
 
       let monsterButton = document.querySelector('input[value="ИСКАТЬ СТРАШИЛКУ"]');
@@ -572,6 +657,9 @@
       if (!arenaEnemies) {
         return false;
       }
+      if (randomInteger(0, 100) === 1) {
+        VALUES.main.blackList.arena.cleanup(30);
+      }
       let enemiesDiv = arenaEnemies.querySelectorAll('.arena_enemy');
       let enemies = [];
       for (let i = 0; i < enemiesDiv.length; i++) {
@@ -585,7 +673,12 @@
 
       let preferredEnemies = enemies.filter(item => !VALUES.main.blackList.arena.existsBy('name', item.name))
       if (!preferredEnemies[0]) {
-        console.log('All enemies are in blacklist.'); // TODO: use leaf to skip enemies
+        console.log('All enemies are in blacklist. Skip them by a leaf.');
+        let leafButton = document.querySelector('.cmd_small_sl.cmd_asmall_sl.fl_r.can_disable');
+        if (leafButton && !isHidden(leafButton) && !isDisabled(leafButton)) {
+          leafButton.click();
+          return true;
+        }
         preferredEnemies = enemies;
       }
       await delay(randomInteger(2000, 4000));
@@ -623,6 +716,23 @@
         monsterButton.click();
       }
       return true;
+    }
+
+    async function destinyChanneling() {
+      let button = document.querySelector('.channeling_cmd[data-cmd="feed_free"] .w100');
+      if (button && !isHidden(button) && !isDisabled(button)) {
+        console.log('Just clicking the button.');
+        await delay(randomInteger(0, 500));
+        button.click();
+      }
+      // CHANNELING TIMER
+      let timerChannelingSpan = document.querySelector('.w100 span.js_timer');
+      if (timerChannelingSpan) {
+        let timerChanneling = getDateFromSpan(timerChannelingSpan);
+        GM_setValue('main.timer.channeling', timerChanneling);
+        //console.log('timer channeling:', timerChanneling, getCountDownFromDate(timerChanneling)/1000);
+      }
+      return false;
     }
 
     async function checkEvents(destiny = '') {
@@ -754,16 +864,29 @@
     }
     let timestampArray = timerScript.innerText.trim().replace(/[\r\n\t]+/g, '').match(/\d{10}/);
     if (timestampArray.length) {
-      return new Date(+timestampArray[0] * 1000);
+      return new Date(+timestampArray[0] * 1e3);
     }
+  }
+  function getDateFromDiv(timerDiv) {
+    if (!timerDiv) {
+      return 0;
+    }
+    return new Date(timerDiv.getAttribute('timer_end') * 1e3);
   }
   function getCountDownFromDate(date) {
     return +date - +new Date;
   }
+  function getNextDay() {
+    let today = new Date();
+    let tomorrow = new Date();
+    tomorrow.setDate(today.getDate()+1);
+    tomorrow.setUTCHours(21,0,0,0); // MSK 00:00 is UTC+3
+    return tomorrow;
+  }
 
   if (document.title.includes('Ведутся работы.')) {
     console.log('Maintenance.');
-    return setTimeout(location.reload, randomInteger(600 * 1e3, 1200 * 1e3));
+    return setTimeout(()=>location.reload(), randomInteger(600 * 1e3, 1200 * 1e3));
   }
   await destinyInit();
 })();
