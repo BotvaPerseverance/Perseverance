@@ -8,14 +8,27 @@
 // @match        https://g2.botva.ru/*
 // @match        https://g3.botva.ru/*
 // @match        https://turbo.botva.ru/*
+// @match        https://avatar.botva.ru/*
 // @run-at       document-end
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_notification
 // ==/UserScript==
 
+// devs broke all popups
+$(function(){
+    $(document).ready(() => {
+        jQuery.ajaxSetup({
+            beforeSend: (() => {})
+        });
+    })
+});
+
 // .balert_baloon_content.big
 (async () => {
+  if (location.host.toLocaleLowerCase() === 'avatar.botva.ru') {
+    return;
+  }
 
   let BM = GM_getValue('main.power', 100) / 1.5;
   let arenaEnabled = GM_getValue('main.arena.enabled', 1);
@@ -57,8 +70,8 @@
       } else {
         this._array.push({
           name,
-          created: new Date(),
-          updated: new Date()
+          created: +new Date(),
+          updated: +new Date()
         });
       }
       this._commit();
@@ -792,6 +805,12 @@
 
     async function destinyChanneling() {
       let button = document.querySelector('.channeling_cmd[data-cmd="feed_free"] .w100');
+      let count = document.querySelector('.borderb.mb10.pb10 b:first-child');
+      if (count && +count.innerText >= 300) {
+        console.log('Channeling: complete');
+        GM_setValue('main.timer.channeling', 0);
+        return false;
+      }
       if (button && !isHidden(button) && !isDisabled(button)) {
         console.log('Just clicking the button.');
         await delay(randomInteger(0, 500));
@@ -928,7 +947,7 @@
   }
   function getDateFromSpan(timerSpan) {
     return timerSpan
-      ? new Date(+(timerSpan.attributes.timer.value.split('|')[0]) * 1e3)
+      ? +new Date(+(timerSpan.attributes.timer.value.split('|')[0]) * 1e3)
       : 0;
   }
   function getDateFromScript(timerScript) {
@@ -937,14 +956,14 @@
     }
     let timestampArray = timerScript.innerText.trim().replace(/[\r\n\t]+/g, '').match(/\d{10}/);
     if (timestampArray.length) {
-      return new Date(+timestampArray[0] * 1e3);
+      return +new Date(+timestampArray[0] * 1e3);
     }
   }
   function getDateFromDiv(timerDiv) {
     if (!timerDiv) {
       return 0;
     }
-    return new Date(timerDiv.getAttribute('timer_end') * 1e3);
+    return +new Date(timerDiv.getAttribute('timer_end') * 1e3);
   }
   function getCountDownFromDate(date) {
     return +date - +new Date;
@@ -954,7 +973,7 @@
     let tomorrow = new Date();
     tomorrow.setDate(today.getDate()+1);
     tomorrow.setUTCHours(21,0,0,0); // MSK 00:00 is UTC+3
-    return tomorrow;
+    return +tomorrow;
   }
   function getGuild() {
     let list = document.querySelector('.guilds div a').classList;
