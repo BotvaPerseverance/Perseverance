@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Perseverance
 // @namespace    http://*.botva.ru/*
-// @version      0.1
+// @version      0.2
 // @description  try to take over the world!
 // @author       BotvaPerseverance
 // @match        https://g1.botva.ru/*
