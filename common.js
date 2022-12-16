@@ -1,4 +1,5 @@
 // devs broke all popups
+let popups = [];
 if ($) {
   $(function () {
     $(document).ready(() => {
@@ -137,7 +138,7 @@ class List {
   addName(name) {
     let exists = this.findBy('name', name);
     if (exists.length) {
-      exists[0].updated = new Date();
+      exists[0].updated = +new Date();
     } else {
       this._array.push({
         name,

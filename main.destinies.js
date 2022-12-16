@@ -64,11 +64,11 @@ async function destinyTemple() {
   if (!inputs || !inputs.length) {
     return false; // Just go ahead.
   }
-  await delay(randomInteger(500, 2000));
+  await delay(randomInteger(100, 2000));
   inputs.forEach(input => { // TODO: click in series
     input.click();
   });
-  await delay(randomInteger(500, 2000));
+  await delay(randomInteger(100, 2000));
   let removePrice = removeBlock.querySelector('input[name="ptype"][value="1"]');
   if (!removePrice || isHidden(removePrice) || isDisabled(removePrice)) {
     throw new Error('temple: no crystal price');
@@ -80,7 +80,7 @@ async function destinyTemple() {
   if (!submitButton) {
     throw new Error('temple: no submit button');
   }
-  await delay(randomInteger(500, 2000));
+  await delay(randomInteger(100, 2000));
   submitButton.click();
   return true;
 }
@@ -91,7 +91,7 @@ async function destinyFightLog() {
   let fighterName = document.querySelector('.fl_l .arena_log a.profile span').innerHTML; // uppercase workaround
   if (playerName !== fighterName) {
     console.log('Not our job.');
-    await delay(randomInteger(500, 2000));
+    await delay(randomInteger(100, 2000));
     return false;
   }
   let enemy = document.querySelector('.fl_r .arena_log span');
@@ -101,7 +101,7 @@ async function destinyFightLog() {
   if (lose) {
     VALUES.main.blackList.arena.addName(enemyName);
   }
-  await delay(randomInteger(2000, 8000));
+  await delay(randomInteger(100, 8000));
   return document.querySelector('.timer[href="dozor.php"]').click();
 }
 async function destinyHarbourPier() {
@@ -185,7 +185,7 @@ async function destinyWorkshop() {
       }
       console.log('Click the button.');
       button.click();
-      await delay(5000);
+      await delay(randomInteger(100, 5000));
     }
     //return false;
   }
@@ -252,13 +252,12 @@ async function destinyTunnels() {
   if (receiveBtn && !isHidden(receiveBtn)) {
     console.log('Get gold!!!');
     receiveBtn.click();
-    await delay(randomInteger(1000, 2000));
-    return false;
+    return true;
   }
 
   let [current, max] = count.innerText.split('/');
   console.log(`We have ${current} runs out of ${max}`);
-  if (current === max) {
+  if (+current === +max) {
     console.log('Sry, no more runs.');
     GM_setValue('main.timer.tunnels', getNextDay());
     return false;
@@ -271,7 +270,7 @@ async function destinyTunnels() {
     console.log('Sry, cooldown.');
     let timerTunnels = getDateFromDiv(timer);
     GM_setValue('main.timer.tunnels', timerTunnels);
-    //console.log('timer tunnels', timerTunnels, getCountDownFromDate(timerTunnels)/1000);
+    console.log('timer tunnels', timerTunnels, getCountDownFromDate(timerTunnels)/1000);
     return false;
   }
   if (current && timer && !description) {
@@ -284,7 +283,7 @@ async function destinyTunnels() {
     ? document.querySelector('#fort_tunnels_start_2[value="ПО ЛЕБЕДКЕ"]')
     : document.querySelector('#fort_tunnels_start_1[value="ПО ВЕРЕВКЕ"]');
   if (isPetOutOfCage && startBtn && !isHidden(startBtn)) {
-    await delay(randomInteger(5000, 10000));
+    await delay(randomInteger(100, 2000));
     startBtn.click();
   }
 
@@ -357,8 +356,16 @@ async function destinyDozor() {
 
     let dozorForm = document.querySelector('#watch_watch_select');
     if (!dozorForm) {
-      throw new Error('Dozor: no health?!');
+      let button = document.querySelector('.drink_3 input[type=submit][value="ВЫПИТЬ"]');
+      if (button && !isHidden(button) && !isDisabled(button)) {
+        button.click();
+      }
     }
+  }
+
+  let nytreeButton = document.querySelector('.watch_mode.mode2 #watch_find');
+  if (nytreeButton && !isDisabled(nytreeButton)) {
+    nytreeButton.click();
   }
 
   if (arenaEnabled) {
@@ -402,7 +409,7 @@ async function destinyDozor() {
   if (attackEnabled) {
     let zorroAttack = document.querySelector('#form_zorro_advanced');
     if (zorroAttack && isPetOutOfCage) {
-      await delay(randomInteger(2000, 4000));
+      await delay(randomInteger(0, 5000));
       let button = zorroAttack.querySelector('input[value="ПОИСК"]');
       if (button && !isHidden(button) && !isDisabled(button)) {
         button.click();
@@ -412,7 +419,7 @@ async function destinyDozor() {
 
     let attack = document.querySelector('.watch_attack_level');
     if (attack && isPetOutOfCage) {
-      await delay(randomInteger(2000, 4000));
+      await delay(randomInteger(0, 5000));
       let button = attack.querySelector('input[value="ПОИСК"]');
       if (button && !isHidden(button) && !isDisabled(button)) {
         button.click();
@@ -456,7 +463,7 @@ async function destinyDozorArena2(arenaEnemies) { // Step 2: fight
   if (!preferredEnemies[0]) {
     let seriesCountSpan = document.querySelector('#t_help_102 span');
     let seriesCount = seriesCountSpan ? +seriesCountSpan.innerText.match(/Серия побед: (\d+)\./i)[1] : 0;
-    let preferredSeriesCount = GM_setValue('main.arena.preferredSeriesCount', 25);
+    let preferredSeriesCount = GM_getValue('main.arena.preferredSeriesCount', 25);
     if (seriesCount > preferredSeriesCount) {
       console.log('All enemies are in blacklist. Skip them by a leaf.');
       let leafButton = document.querySelector('.cmd_small_sl.cmd_asmall_sl.fl_r.can_disable');
@@ -467,7 +474,7 @@ async function destinyDozorArena2(arenaEnemies) { // Step 2: fight
     }
     preferredEnemies = enemies;
   }
-  await delay(randomInteger(2000, 4000));
+  await delay(randomInteger(0, 5000));
   preferredEnemies[0].link.click();
   return true;
 }
@@ -524,6 +531,25 @@ async function destinyChanneling() {
     let timerChanneling = getDateFromSpan(timerChannelingSpan);
     GM_setValue('main.timer.channeling', timerChanneling);
     //console.log('timer channeling:', timerChanneling, getCountDownFromDate(timerChanneling)/1000);
+  }
+  return false;
+}
+
+async function destinyHistory() {
+  let timer = document.querySelector('.school_history_next_turn_timer span');
+  if (timer) {
+    return false;
+  }
+  let button = document.querySelector('.school_history_lever');
+  let energy = document.querySelector('#school_history_energy')?.innerText;
+
+  if (button && +energy > 0) {
+    console.log('Just clicking the button.');
+    await delay(randomInteger(0, 500));
+    button.click();
+    await delay(randomInteger(5000, 10000));
+    let xbutton = document.querySelector('.box_x_button');
+    xbutton ? xbutton.click() : null;
   }
   return false;
 }

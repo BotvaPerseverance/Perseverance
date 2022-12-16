@@ -117,6 +117,9 @@ function chooseYourDestiny(href) {
   if (href.includes('/channeling.php')) {
     return 'channeling';
   }
+  if (href.includes('/history.php')) {
+    return 'history';
+  }
 }
 
 async function destinyRun(destiny) {
@@ -147,6 +150,8 @@ async function destinyRun(destiny) {
       return destinyDozorMonster();
     case 'channeling':
       return destinyChanneling();
+    case 'history':
+      return destinyHistory();
     case 'none':
       return true;
     default:
@@ -171,7 +176,6 @@ async function checkEvents(destiny = '') {
     18, // harbour_pier
     36, // lab
     73, // harbour_pier (buy_boat)
-    95, // tunnels
   ];
   if (arenaEnabled && crystals >= 3 && !destiny.includes('dozor')) {
     eventArray.unshift(2); // arena
@@ -185,6 +189,12 @@ async function checkEvents(destiny = '') {
     if (attackEnabled) {
       eventArray.push(71); // dozor_attack
     }
+  }
+  if (!destiny.includes('tunnels')) {
+    eventArray.unshift(95); // tunnels
+  }
+  if (!destiny.includes('history')) {
+    eventArray.unshift(99); // history
   }
   let eventString = '#event_' + eventArray.join(', #event_');
   let events = eventsDiv.querySelectorAll(eventString);
@@ -264,42 +274,42 @@ async function destinyMain() {
   //console.log('timer fightPlace', timerFightPlace, getCountDownFromDate(timerFightPlace)/1000);
   //}
 
-    let destiny = chooseYourDestiny(location.href);
-    let stayOnPage = false;
+  let destiny = chooseYourDestiny(location.href);
+  let stayOnPage = false;
 
-    if (destiny !== 'buy_pet' && !isPetOutOfCage && preferredPet) {
-      await delay(randomInteger(500, 2000));
-      await uncagePet();
-    }
-
-    if (!destiny) {
-      let sec = randomInteger(10, randomInteger(15, 20));
-      console.log(`Delaying ${sec} seconds. Let\'s check events.`);
-      await delay(sec * 1e3);
-    } else {
-      console.log(`Destiny is ${destiny}.`);
-      await delay(randomInteger(500, 2000));
-      stayOnPage = await destinyRun(destiny);
-    }
-
-    if (stayOnPage) {
-      return;
-    }
-
-    await checkEvents(destiny);
-    await checkTimers();
-
+  if (destiny !== 'buy_pet' && !isPetOutOfCage && preferredPet) {
     await delay(randomInteger(500, 2000));
-    let min = randomInteger(1, randomInteger(10, 15));
-    console.log(`No events? SRSLY? Waiting ${min} min for reload.`);
-    await delay(min * 60 * 1e3);
+    await uncagePet();
+  }
 
-    let job = document.querySelector('#rmenu1 .timer.link');
-    if (job.innerText !== 'Я свободен!') {
-      return job.click();
-    }
-    if (location.pathname !== '/dozor.php') {
-      return document.querySelector('.timer[href="dozor.php"]').click();
-    }
-    doReload();
+  if (!destiny) {
+    let sec = randomInteger(10, randomInteger(15, 20));
+    console.log(`Delaying ${sec} seconds. Let\'s check events.`);
+    await delay(sec * 1e3);
+  } else {
+    console.log(`Destiny is ${destiny}.`);
+    await delay(randomInteger(500, 2000));
+    stayOnPage = await destinyRun(destiny);
+  }
+
+  if (stayOnPage) {
+    return;
+  }
+
+  await checkEvents(destiny);
+  await checkTimers();
+
+  await delay(randomInteger(500, 2000));
+  let min = randomInteger(1, randomInteger(10, 15));
+  console.log(`No events? SRSLY? Waiting ${min} min for reload.`);
+  await delay(min * 60 * 1e3);
+
+  let job = document.querySelector('#rmenu1 .timer.link');
+  if (job.innerText !== 'Я свободен!') {
+    return job.click();
+  }
+  if (location.pathname !== '/dozor.php') {
+    return document.querySelector('.timer[href="dozor.php"]').click();
+  }
+  doReload();
 }

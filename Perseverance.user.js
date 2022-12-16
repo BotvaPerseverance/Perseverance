@@ -23,8 +23,8 @@
   try {
     if (location.host.toLocaleLowerCase() === 'avatar.botva.ru') {
       let min = randomInteger(5, 15);
+      console.log(`We have ${min} minutes to complete all the tasks!`);
       setTimeout(() => {
-        console.log(`We have ${min} minutes to complete all the tasks!`);
         location.href = 'https://avatar.botva.ru/avatara.php?a=jump';
       }, min*60000);
       return await destinyAvatar();
